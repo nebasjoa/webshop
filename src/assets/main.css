@@ -1,0 +1,30 @@
+:root {
+  --main-width: 992px;
+  /* --main-blue: #004fc5; */
+
+  /* Navy Ink */
+
+  --main-background: #ececec;
+
+  --main-shadow: #c7c7c7;
+
+  --main-blue: #1F2A44;
+  --amber-gold: #FFC700;
+  --mustard-gold: #D4A600;
+  --sky-blue: #3FA9F5;
+  --darker-green: #25B666;
+  --soft-green: #52C285;
+  --info-green: #6DDE9F;
+  --coral-red: #F2545B;
+  --vivid-coral-red: #FF6A70;
+  --off-white: #FAFAFA;
+  --charcoal: #2E2E2E;
+  --cool-gray: #6B7280;
+}
+
+* {
+  outline: none;
+  margin: 0;
+  box-sizing: border-box;
+  font-family: "Roboto", sans-serif;
+}
