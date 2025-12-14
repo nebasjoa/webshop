@@ -87,17 +87,19 @@ export default {
             aspxpage: 'paymentpage.aspx',
             currency: 'EUR',
             msgver: '2.0',
+            urlsuccess: 'https://localhost:3005/sucess'
         }
     },
     methods: {
         async startPayment() {
             try {
-                const res = await axios.post('/pay', {
+                const res = await axios.post('/pay/prepare', {
                     amount: this.article.price,
                     currency: this.article.currency,
                     msgver: '2.0',
                     refNr: this.generateTransId(),
                     transid: this.generateTransId(),
+                    urlsuccess: this.urlsuccess
                 }, {
                     responseType: 'text' // IMPORTANT
                 });

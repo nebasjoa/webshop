@@ -104,117 +104,42 @@ function buildPlainKvp(params) {
 }
 
 // ----- API: create payment request and auto-post to Computop -----
-app.post("/pay", (req, res) => {
-    try {
-        console.log("POST /pay body:", req.body);
+router.post('/pay/prepare', async (req, res) => {
+  try {
+    // 1) Validate request
+    const { amount, currency, refNr, urlsuccess, failureUrl, notifyUrl, language, msgver } = req.body;
 
-        if (!COMPUTOP_MERCHANT_ID || !COMPUTOP_AES_PASSWORD) {
-            return res.status(500).json({
-                error: "Missing COMPUTOP_MERCHANT_ID or COMPUTOP_AES_PASSWORD in env.",
-            });
-        }
+    // 2) Build plaintext string exactly per Computop spec
+    const plaintext =
+      `MerchantID=${process.env.CT_MERCHANT_ID}` +
+      `&MsgVer=2.0` +
+      `&TransID=${makeTransId()}` +
+      `&RefNr=${encodeURIComponent(refNr)}` +
+      `&Amount=${amount}` +
+      `&Currency=${currency}` +
+      `&URLSuccess=${encodeURIComponent(urlsuccess)}` +
+      `&URLFailure=${encodeURIComponent(failureUrl)}` +
+      `&URLNotify=${encodeURIComponent(notifyUrl)}` +
+      `&Language=${language || 'en'}` +
+      `&Response=encrypt`;
 
-        const amount = req.body.amount != null ? String(req.body.amount) : "";
-        const currency = req.body.currency ? String(req.body.currency) : "EUR";
-        const refNr = req.body.refNr ? String(req.body.refNr) : "";
+    // 3) Encrypt + MAC (your existing AES/HMAC code)
+    const { Data, Len, MAC } = encryptForComputop(plaintext, process.env.CT_SECRET);
 
-        // Important: your frontend sent transid/transId inconsistently. Decide one.
-        const transId = req.body.transId
-            ? String(req.body.transId)
-            : generateTransId12();
-
-        const APP_ORIGIN = process.env.APP_ORIGIN || "http://localhost:3000";
-        const API_ORIGIN = process.env.API_ORIGIN || `http://localhost:${PORT}`;
-
-        const urlSuccess = `${APP_ORIGIN}/payment/success`;
-        const urlFailure = `${APP_ORIGIN}/payment/failure`;
-        const urlNotify = `${API_ORIGIN}/webhooks`; // better as API origin, not APP origin
-
-        // If you have an HMAC/MAC step, compute it server-side and pass here
-        const mac = req.body.mac ? String(req.body.mac) : "";
-
-        const plain = buildPlainKvp({
-            merchantId: COMPUTOP_MERCHANT_ID,
-            transId,
-            refNr,
-            amount,
-            currency,
-            urlSuccess,
-            urlFailure,
-            urlNotify,
-            response: "encrypt",
-            language: "en",
-            mac,
-        });
-
-        const { Data, Len } = encryptAesCbcPkcs7Hex(plain, COMPUTOP_AES_PASSWORD);
-
-        const token = crypto.randomBytes(24).toString("base64url");
-        payIntents.set(token, {
-            MerchantID: COMPUTOP_MERCHANT_ID,
-            Len,
-            Data,
-            expiresAt: Date.now() + INTENT_TTL_MS,
-            used: false,
-        });
-
-        // Frontend will do: window.location.assign(redirectUrl)
-        return res.status(201).json({
-            redirectUrl: `/pay/redirect/${token}`,
-            transId,
-        });
-    } catch (err) {
-        console.error("Computop payment init failed:", err);
-        return res.status(500).json({ error: "Failed to create Computop payment intent." });
-    }
-});
-
-// 2) Redirect endpoint (browser navigation): marks token used, then 302 to post page
-app.get("/pay/redirect/:token", (req, res) => {
-    const token = req.params.token;
-    const it = payIntents.get(token);
-
-    if (!it) return res.status(404).send("Payment intent not found.");
-    if (it.expiresAt <= Date.now()) {
-        payIntents.delete(token);
-        return res.status(410).send("Payment intent expired.");
-    }
-    if (it.used) return res.status(409).send("Payment intent already used.");
-
-    it.used = true;
-    return res.redirect(302, `/pay/post/${token}`);
-});
-
-// 3) HTML auto-post page (browser renders this): posts to Computop
-app.get("/pay/post/:token", (req, res) => {
-    const token = req.params.token;
-    const it = payIntents.get(token);
-
-    if (!it) return res.status(404).send("Payment intent not found.");
-    if (it.expiresAt <= Date.now()) {
-        payIntents.delete(token);
-        return res.status(410).send("Payment intent expired.");
-    }
-
-    // One-shot: delete now so it can't be replayed
-    payIntents.delete(token);
-
-    res.type("html").send(`<!doctype html>
-<html>
-  <head>
-    <meta charset="utf-8" />
-    <title>Redirecting…</title>
-    <meta name="referrer" content="no-referrer" />
-  </head>
-  <body>
-    <form id="pay" action="https://test.computop-paygate.com/paymentpage.aspx" method="post">
-      <input type="hidden" name="MerchantID" value="${escapeHtml(it.MerchantID)}" />
-      <input type="hidden" name="Len" value="${it.Len}" />
-      <input type="hidden" name="Data" value="${escapeHtml(it.Data)}" />
-    </form>
-    <script>document.getElementById('pay').submit();</script>
-  </body>
-</html>`);
+    // 4) Return what the frontend needs to POST to HPP
+    res.status(200).json({
+      hppUrl: process.env.CT_HPP_URL, // test/prod
+      fields: {
+        MerchantID: process.env.CT_MERCHANT_ID,
+        Data,
+        Len,
+        MAC,
+      },
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to prepare payment.' });
+  }
 });
 
 app.post("/api/webhooks/computop", (req, res) => {
