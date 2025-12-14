@@ -9,7 +9,7 @@
             <div class="details-right">
                 <div class="article-title">{{ article.title }}</div>
                 <div>{{ article.price }}</div>
-                <div class="cart-button"><button>Add to cart</button></div>
+                <div class="cart-button"><button @click="store.isMiniCart = true">Add to cart</button></div>
             </div>
         </div>
     </div>
@@ -21,12 +21,14 @@ import dummyPhoto from '@/assets/files/images/camera.jpg'
 export default {
     data() {
         return {
+            store: useWebshopStore(),
             article: {
                 id: '1',
                 title: 'Dummy article',
                 price: '€ 5,00',
                 photo: dummyPhoto
-            }
+            },
+            isAdded: false,
         }
     }
 
@@ -37,6 +39,7 @@ export default {
 .article-details-wrapper {
     width: 100%;
     display: flex;
+    position: relative;
 }
 
 .article-details-content {
