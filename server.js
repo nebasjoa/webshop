@@ -104,7 +104,7 @@ function buildPlainKvp(params) {
 }
 
 // ----- API: create payment request and auto-post to Computop -----
-router.post('/pay/prepare', async (req, res) => {
+app.post('/pay/prepare', async (req, res) => {
   try {
     // 1) Validate request
     const { amount, currency, refNr, urlsuccess, failureUrl, notifyUrl, language, msgver } = req.body;
