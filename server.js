@@ -163,3 +163,11 @@ function escapeHtml(str) {
         .replaceAll('"', "&quot;")
         .replaceAll("'", "&#039;");
 }
+
+export function makeTransId() {
+  const prefix = 'TX';
+  const timestamp = Date.now(); // millisecond precision
+  const random = crypto.randomBytes(4).toString('hex'); // 8 chars
+
+  return `${prefix}-${timestamp}-${random}`;
+}
